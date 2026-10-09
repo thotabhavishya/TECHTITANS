@@ -1,0 +1,1242 @@
+
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CareQueue AI - Smart Patient Queue & Emergency Triage</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        medical: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                            700: '#0f766e',
+                            800: '#115e59',
+                            900: '#134e4a',
+                        },
+                        emergency: '#ef4444',
+                        urgent: '#f59e0b',
+                        routine: '#10b981'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(229, 231, 235, 0.6);
+        }
+        .dark .glass-card {
+            background: rgba(17, 24, 39, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(55, 65, 81, 0.5);
+        }
+    </style>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-200 flex flex-col min-h-screen">
+
+    <!-- Navigation Header -->
+    <header class="sticky top-0 z-40 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <!-- Brand Logo & Title -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-medical-600 to-teal-400 flex items-center justify-center shadow-md text-white">
+                        <i class="fa-solid fa-heart-pulse text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="font-bold text-xl tracking-tight text-slate-900 dark:text-white">CareQueue <span class="text-medical-600 dark:text-medical-500">AI</span></span>
+                            <span class="bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-300 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-teal-300 dark:border-teal-700">Triage Hub</span>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Smart Clinical Triage & Patient Flow Management</p>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs -->
+                <div class="flex items-center space-x-3">
+                    <nav class="flex space-x-1 sm:space-x-2 bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl text-xs sm:text-sm font-medium">
+                        <button id="tab-register-btn" onclick="switchTab('register')" class="px-3.5 py-1.5 rounded-lg transition-all duration-150 bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs">
+                            <i class="fa-solid fa-user-plus mr-1.5 text-medical-600 dark:text-medical-400"></i> Patient Registration
+                        </button>
+                        <button id="tab-queue-btn" onclick="switchTab('queue')" class="px-3.5 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all duration-150 flex items-center">
+                            <i class="fa-solid fa-list-ol mr-1.5 text-amber-500"></i> Patient Queue
+                            <span id="nav-queue-badge" class="ml-1.5 px-1.5 py-0.2 bg-amber-500 text-white rounded-full text-[10px] font-bold">0</span>
+                        </button>
+                        <button id="tab-history-btn" onclick="switchTab('history')" class="px-3.5 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all duration-150">
+                            <i class="fa-solid fa-clock-rotate-left mr-1.5 text-blue-500"></i> Patient History
+                        </button>
+                    </nav>
+
+                    <!-- Theme Toggle & Quick Reset -->
+                    <div class="flex items-center space-x-1 border-l border-slate-200 dark:border-slate-700 pl-2">
+                        <button onclick="loadDemoData()" class="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-sm transition-colors" title="Load Demo Data">
+                            <i class="fa-solid fa-rotate-right"></i>
+                        </button>
+                        <button onclick="toggleDarkMode()" class="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-sm transition-colors" title="Toggle Light/Dark Mode">
+                            <i id="theme-toggle-icon" class="fa-solid fa-moon"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Workspace -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ================= PAGE 1: PATIENT REGISTRATION ================= -->
+        <div id="tab-register" class="max-w-3xl mx-auto space-y-6">
+            <div class="glass-card rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sm:p-8">
+                
+                <div class="border-b border-slate-200 dark:border-slate-800 pb-5 mb-6 flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-3 bg-medical-500/10 text-medical-600 dark:text-medical-400 rounded-xl">
+                            <i class="fa-solid fa-clipboard-user text-2xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900 dark:text-white">Patient Intake & Emergency Registration</h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Capture patient details, vitals, and assign staff-verified triage classification.</p>
+                        </div>
+                    </div>
+                    <span class="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-3 py-1 rounded-full font-mono font-semibold">Page 1 of 3</span>
+                </div>
+
+                <!-- Alert Message Banner -->
+                <div id="reg-alert" class="hidden mb-4 p-3 rounded-xl text-xs font-medium flex items-center space-x-2"></div>
+
+                <form id="patient-form" onsubmit="handleRegisterPatient(event)" class="space-y-6">
+                    
+                    <!-- Section 1: Demographics & Registration Info -->
+                    <div>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center">
+                            <i class="fa-solid fa-id-card mr-1.5"></i> Patient Demographics
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Generated Patient ID</label>
+                                <div class="relative">
+                                    <input type="text" id="reg-patient-id" readonly class="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-xs font-mono font-bold text-slate-600 dark:text-slate-300 cursor-not-allowed">
+                                    <button type="button" onclick="generateNewPatientId()" class="absolute right-2 top-2 text-xs text-medical-600 dark:text-medical-400 font-semibold hover:underline">New</button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Arrival Time <span class="text-red-500">*</span></label>
+                                <input type="time" id="reg-arrival-time" required class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-xs focus:ring-2 focus:ring-medical-500 focus:outline-none dark:text-white">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Gender / Sex</label>
+                                <select id="reg-gender" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-xs focus:ring-2 focus:ring-medical-500 focus:outline-none dark:text-white">
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                    <option value="Other">Other / Unspecified</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
+                            <div class="sm:col-span-2">
+                                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Full Patient Name <span class="text-red-500">*</span></label>
+                                <input type="text" id="reg-name" placeholder="e.g. Sarah Jenkins" required class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-xs focus:ring-2 focus:ring-medical-500 focus:outline-none dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Age (Years) <span class="text-red-500">*</span></label>
+                                <input type="number" id="reg-age" min="0" max="120" placeholder="e.g. 54" required class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-xs focus:ring-2 focus:ring-medical-500 focus:outline-none dark:text-white">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Clinical Vitals Check -->
+                    <div class="pt-2">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center">
+                            <i class="fa-solid fa-heart-pulse mr-1.5"></i> Primary Clinical Vitals
+                        </h3>
+
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-100/60 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">Blood Pressure</label>
+                                <input type="text" id="reg-vital-bp" placeholder="120/80" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md py-1.5 px-2 text-xs focus:ring-2 focus:ring-medical-500 focus:outline-none dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">Heart Rate (BPM)</label>
+                                <input type="number" id="reg-vital-hr" placeholder="78" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md py-1.5 px-2 text-xs focus:ring-2 focus:ring-medical-500 focus:outline-none dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">SpO2 Level (%)</label>
+                                <input type="number" id="reg-vital-spo2" placeholder="98" min="50" max="100" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md py-1.5 px-2 text-xs focus:ring-2 focus:ring-medical-500 focus:outline-none dark:text-white">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">Temp (°F)</label>
+                                <input type="number" step="0.1" id="reg-vital-temp" placeholder="98.6" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md py-1.5 px-2 text-xs focus:ring-2 focus:ring-medical-500 focus:outline-none dark:text-white">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 3: Symptoms & AI Triage Classification -->
+                    <div class="pt-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center">
+                                <i class="fa-solid fa-notes-medical mr-1.5"></i> Chief Symptoms & AI Triage
+                            </h3>
+                            <button type="button" onclick="autoSuggestTriage()" class="text-xs text-medical-600 dark:text-medical-400 font-semibold hover:underline flex items-center space-x-1">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                <span>AI Suggest Triage Level</span>
+                            </button>
+                        </div>
+                        
+                        <textarea id="reg-symptoms" rows="3" placeholder="e.g. Acute chest tightness, shortness of breath, radiating pain to left shoulder, cold sweats." required class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-xs focus:ring-2 focus:ring-medical-500 focus:outline-none dark:text-white mb-3"></textarea>
+
+                        <!-- AI Suggestion Result Box -->
+                        <div id="ai-suggestion-box" class="hidden mb-4 p-3.5 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 rounded-xl text-xs text-teal-800 dark:text-teal-300 transition-all">
+                            <div class="flex items-start space-x-2.5">
+                                <i class="fa-solid fa-robot text-teal-600 dark:text-teal-400 text-base mt-0.5 shrink-0"></i>
+                                <div>
+                                    <strong id="ai-suggest-title" class="text-sm font-bold">AI Triage Recommendation: Emergency</strong>
+                                    <p id="ai-suggest-desc" class="mt-0.5 text-slate-600 dark:text-slate-300"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Urgency Radio Buttons -->
+                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                            Select Triage Urgency Level <span class="text-red-500">*</span>
+                        </label>
+                        
+                        <div class="grid grid-cols-3 gap-3">
+                            <!-- Emergency (Red) Option -->
+                            <label class="relative flex flex-col p-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 cursor-pointer hover:border-red-400 transition-all text-center group has-[:checked]:border-red-500 has-[:checked]:bg-red-50/50 dark:has-[:checked]:bg-red-950/30">
+                                <input type="radio" name="reg-urgency" value="EMERGENCY" class="sr-only" required>
+                                <span class="w-3.5 h-3.5 rounded-full bg-red-500 mx-auto mb-1.5 shadow-xs"></span>
+                                <span class="text-xs font-bold text-red-600 dark:text-red-400">Emergency</span>
+                                <span class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Immediate Care (Red)</span>
+                            </label>
+
+                            <!-- Urgent (Yellow) Option -->
+                            <label class="relative flex flex-col p-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 cursor-pointer hover:border-amber-400 transition-all text-center group has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50/50 dark:has-[:checked]:bg-amber-950/30">
+                                <input type="radio" name="reg-urgency" value="URGENT" class="sr-only">
+                                <span class="w-3.5 h-3.5 rounded-full bg-amber-500 mx-auto mb-1.5 shadow-xs"></span>
+                                <span class="text-xs font-bold text-amber-600 dark:text-amber-400">Urgent</span>
+                                <span class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">&lt; 30 Mins (Yellow)</span>
+                            </label>
+
+                            <!-- Routine (Green) Option -->
+                            <label class="relative flex flex-col p-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 cursor-pointer hover:border-emerald-400 transition-all text-center group has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50/50 dark:has-[:checked]:bg-emerald-950/30">
+                                <input type="radio" name="reg-urgency" value="ROUTINE" class="sr-only">
+                                <span class="w-3.5 h-3.5 rounded-full bg-emerald-500 mx-auto mb-1.5 shadow-xs"></span>
+                                <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400">Routine</span>
+                                <span class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Non-Urgent (Green)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Submit Actions -->
+                    <div class="flex items-center space-x-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                        <button type="submit" class="flex-1 bg-medical-600 hover:bg-medical-700 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition-all text-xs sm:text-sm flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-check-circle text-base"></i>
+                            <span>Complete Registration & Send to Priority Queue</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ================= PAGE 2: PATIENT QUEUE ================= -->
+        <div id="tab-queue" class="hidden space-y-6">
+            
+            <!-- Page Header Bar -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                        <span>Active Patient Queue & Triage Dashboard</span>
+                        <span class="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300 font-semibold px-2.5 py-0.5 rounded-full">Page 2 of 3</span>
+                    </h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Live priority queue auto-ordered by acuity (Emergency &gt; Urgent &gt; Routine) and arrival time.</p>
+                </div>
+                <button onclick="switchTab('register')" class="bg-medical-600 hover:bg-medical-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition shadow-xs flex items-center space-x-1.5 self-start sm:self-auto">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Register New Patient</span>
+                </button>
+            </div>
+
+            <!-- Key Metrics Overview Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <!-- Total Registered -->
+                <div class="glass-card p-4 rounded-xl shadow-xs border-l-4 border-slate-500">
+                    <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase">
+                        <span>Total Active</span>
+                        <i class="fa-solid fa-users text-base"></i>
+                    </div>
+                    <div class="mt-2 flex items-baseline justify-between">
+                        <span id="stat-total" class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">0</span>
+                        <span class="text-xs text-slate-500">Active Pool</span>
+                    </div>
+                </div>
+
+                <!-- Waiting Patients -->
+                <div class="glass-card p-4 rounded-xl shadow-xs border-l-4 border-amber-500">
+                    <div class="flex items-center justify-between text-amber-600 dark:text-amber-400 text-xs font-semibold uppercase">
+                        <span>Waiting Queue</span>
+                        <i class="fa-solid fa-clock text-base"></i>
+                    </div>
+                    <div class="mt-2 flex items-baseline justify-between">
+                        <span id="stat-waiting" class="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">0</span>
+                        <span class="text-xs text-amber-600/70">In Line</span>
+                    </div>
+                </div>
+
+                <!-- In Consultation -->
+                <div class="glass-card p-4 rounded-xl shadow-xs border-l-4 border-blue-500">
+                    <div class="flex items-center justify-between text-blue-600 dark:text-blue-400 text-xs font-semibold uppercase">
+                        <span>In Consultation</span>
+                        <i class="fa-solid fa-user-doctor text-base"></i>
+                    </div>
+                    <div class="mt-2 flex items-baseline justify-between">
+                        <span id="stat-consultation" class="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">0</span>
+                        <span class="text-xs text-blue-500/70">Active Now</span>
+                    </div>
+                </div>
+
+                <!-- Avg Estimated Wait Time -->
+                <div class="glass-card p-4 rounded-xl shadow-xs border-l-4 border-medical-500">
+                    <div class="flex items-center justify-between text-medical-600 dark:text-medical-400 text-xs font-semibold uppercase">
+                        <span>Avg Wait Time</span>
+                        <i class="fa-solid fa-stopwatch text-base"></i>
+                    </div>
+                    <div class="mt-2 flex items-baseline justify-between">
+                        <span id="stat-avg-wait" class="text-2xl sm:text-3xl font-bold text-medical-600 dark:text-medical-400">0</span>
+                        <span class="text-xs text-medical-600/70">mins</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Charts Section -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="glass-card p-5 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-800">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center">
+                            <i class="fa-solid fa-chart-pie text-medical-600 mr-2"></i> Queue Triage Breakdown
+                        </h3>
+                        <span class="text-xs bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md text-slate-500">Live</span>
+                    </div>
+                    <div class="h-48 flex items-center justify-center relative">
+                        <canvas id="urgencyChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-800">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center">
+                            <i class="fa-solid fa-chart-bar text-medical-600 mr-2"></i> Patient Flow Capacity
+                        </h3>
+                        <span class="text-xs bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md text-slate-500">Capacity View</span>
+                    </div>
+                    <div class="h-48 flex items-center justify-center relative">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Queue Management & Action Table -->
+            <div class="glass-card rounded-2xl shadow-xs border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                            <span>Smart Priority Patient Queue</span>
+                            <span class="bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400 text-xs px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span> Priority Sorted
+                            </span>
+                        </h2>
+                    </div>
+
+                    <!-- Search & Filter Controls -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="relative flex-1 sm:w-64">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                            <input type="text" id="queue-search" oninput="renderQueue()" placeholder="Search ID, Name, Symptom..." class="w-full pl-8 pr-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-medical-500 focus:outline-none dark:text-white">
+                        </div>
+
+                        <select id="queue-filter-urgency" onchange="renderQueue()" class="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs py-1.5 px-3 focus:ring-2 focus:ring-medical-500 dark:text-white">
+                            <option value="ALL">All Urgencies</option>
+                            <option value="EMERGENCY">Emergency (Red)</option>
+                            <option value="URGENT">Urgent (Yellow)</option>
+                            <option value="ROUTINE">Routine (Green)</option>
+                        </select>
+
+                        <select id="queue-filter-status" onchange="renderQueue()" class="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs py-1.5 px-3 focus:ring-2 focus:ring-medical-500 dark:text-white">
+                            <option value="ALL">All Active Statuses</option>
+                            <option value="WAITING" selected>Waiting Only</option>
+                            <option value="IN_CONSULTATION">In Consultation</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Queue Table View -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs sm:text-sm">
+                        <thead class="bg-slate-100/80 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th class="py-3 px-4">Rank</th>
+                                <th class="py-3 px-4">Patient ID & Name</th>
+                                <th class="py-3 px-4">Age / Vitals</th>
+                                <th class="py-3 px-4">Symptoms / Medical Notes</th>
+                                <th class="py-3 px-4">Triage Urgency</th>
+                                <th class="py-3 px-4">Arrival</th>
+                                <th class="py-3 px-4">Status</th>
+                                <th class="py-3 px-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="queue-table-body" class="divide-y divide-slate-200 dark:divide-slate-800 font-medium">
+                            <!-- JS Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="queue-empty-state" class="hidden py-12 text-center text-slate-400 dark:text-slate-500">
+                    <i class="fa-solid fa-circle-check text-4xl mb-3 opacity-50 text-emerald-500"></i>
+                    <p class="text-sm font-medium">No active patients waiting in queue.</p>
+                    <p class="text-xs text-slate-400 mt-1">Register a new patient or load demo data.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= PAGE 3: PATIENT HISTORY ================= -->
+        <div id="tab-history" class="hidden space-y-6">
+            
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                        <span>Patient Consultation History & Discharged Archive</span>
+                        <span class="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 font-semibold px-2.5 py-0.5 rounded-full">Page 3 of 3</span>
+                    </h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Historical records of completed consultations, discharged patients, and medical outcome logs.</p>
+                </div>
+                
+                <div class="flex items-center space-x-2">
+                    <button onclick="exportHistoryData()" class="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-download"></i>
+                        <span>Export History</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- History Metrics Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="glass-card p-4 rounded-xl shadow-xs border-l-4 border-emerald-500">
+                    <div class="flex items-center justify-between text-emerald-600 dark:text-emerald-400 text-xs font-semibold uppercase">
+                        <span>Total Completed Cases</span>
+                        <i class="fa-solid fa-circle-check text-base"></i>
+                    </div>
+                    <div class="mt-2 flex items-baseline justify-between">
+                        <span id="stat-history-count" class="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">0</span>
+                        <span class="text-xs text-slate-500">Resolved</span>
+                    </div>
+                </div>
+
+                <div class="glass-card p-4 rounded-xl shadow-xs border-l-4 border-red-500">
+                    <div class="flex items-center justify-between text-red-600 dark:text-red-400 text-xs font-semibold uppercase">
+                        <span>Emergency Cases Handled</span>
+                        <i class="fa-solid fa-kit-medical text-base"></i>
+                    </div>
+                    <div class="mt-2 flex items-baseline justify-between">
+                        <span id="stat-history-emergency" class="text-2xl sm:text-3xl font-bold text-red-600 dark:text-red-400">0</span>
+                        <span class="text-xs text-slate-500">Critical Resolved</span>
+                    </div>
+                </div>
+
+                <div class="glass-card p-4 rounded-xl shadow-xs border-l-4 border-blue-500">
+                    <div class="flex items-center justify-between text-blue-600 dark:text-blue-400 text-xs font-semibold uppercase">
+                        <span>Avg Resolution Time</span>
+                        <i class="fa-solid fa-user-clock text-base"></i>
+                    </div>
+                    <div class="mt-2 flex items-baseline justify-between">
+                        <span id="stat-history-avgtime" class="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">18</span>
+                        <span class="text-xs text-slate-500">mins / patient</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Table View -->
+            <div class="glass-card rounded-2xl shadow-xs border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-box-archive text-medical-600"></i>
+                        <span>Discharged & Completed Patient Records</span>
+                    </h2>
+
+                    <!-- Search & Filter Controls for History -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="relative flex-1 sm:w-64">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                            <input type="text" id="history-search" oninput="renderHistory()" placeholder="Search History..." class="w-full pl-8 pr-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-medical-500 focus:outline-none dark:text-white">
+                        </div>
+
+                        <select id="history-filter-urgency" onchange="renderHistory()" class="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs py-1.5 px-3 focus:ring-2 focus:ring-medical-500 dark:text-white">
+                            <option value="ALL">All Urgencies</option>
+                            <option value="EMERGENCY">Emergency</option>
+                            <option value="URGENT">Urgent</option>
+                            <option value="ROUTINE">Routine</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs sm:text-sm">
+                        <thead class="bg-slate-100/80 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th class="py-3 px-4">Patient ID & Name</th>
+                                <th class="py-3 px-4">Age / Sex</th>
+                                <th class="py-3 px-4">Primary Symptoms</th>
+                                <th class="py-3 px-4">Triage Level</th>
+                                <th class="py-3 px-4">Arrival</th>
+                                <th class="py-3 px-4">Completion Status</th>
+                                <th class="py-3 px-4 text-right">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body" class="divide-y divide-slate-200 dark:divide-slate-800 font-medium">
+                            <!-- JS Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="history-empty-state" class="hidden py-12 text-center text-slate-400 dark:text-slate-500">
+                    <i class="fa-solid fa-folder-open text-4xl mb-3 opacity-50"></i>
+                    <p class="text-sm font-medium">No completed patient history records found.</p>
+                    <p class="text-xs text-slate-400 mt-1">Completed patients from Page 2 will automatically appear here.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Detailed Patient Action Modal -->
+    <div id="patient-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-card bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative animate-in fade-in zoom-in-95 duration-150">
+            <button onclick="closeModal()" class="absolute right-4 top-4 text-slate-400 hover:text-slate-600 dark:hover:text-white">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <div class="flex items-center space-x-3 mb-4">
+                <div id="modal-urgency-badge" class="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg font-bold shadow-xs">
+                    <i class="fa-solid fa-hospital-user"></i>
+                </div>
+                <div>
+                    <h3 id="modal-patient-name" class="text-lg font-bold text-slate-900 dark:text-white">Patient Name</h3>
+                    <p id="modal-patient-id" class="text-xs text-slate-500 dark:text-slate-400 font-mono">ID: --</p>
+                </div>
+            </div>
+
+            <div class="space-y-4 text-xs">
+                <!-- Vitals & Info Grid -->
+                <div class="grid grid-cols-2 gap-3 p-3 bg-slate-100 dark:bg-slate-800/60 rounded-xl">
+                    <div>
+                        <span class="text-slate-400 block text-[10px]">AGE / GENDER</span>
+                        <span id="modal-patient-age" class="font-semibold text-slate-800 dark:text-slate-200">--</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block text-[10px]">ARRIVAL TIME</span>
+                        <span id="modal-patient-arrival" class="font-semibold text-slate-800 dark:text-slate-200">--</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block text-[10px]">VITALS (BP / SpO2 / HR)</span>
+                        <span id="modal-patient-vitals" class="font-semibold text-slate-800 dark:text-slate-200">--</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block text-[10px]">CURRENT STATUS</span>
+                        <span id="modal-patient-status" class="font-semibold text-medical-600 dark:text-medical-400">--</span>
+                    </div>
+                </div>
+
+                <!-- Symptoms Text -->
+                <div>
+                    <span class="text-slate-500 font-semibold block mb-1">Reported Symptoms & Clinical Notes:</span>
+                    <p id="modal-patient-symptoms" class="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 leading-relaxed"></p>
+                </div>
+
+                <!-- Staff Triage Reclassification Controls -->
+                <div id="modal-reclassify-section" class="pt-3 border-t border-slate-200 dark:border-slate-800">
+                    <label class="block font-semibold text-slate-700 dark:text-slate-300 mb-2">Staff Reclassify Triage Urgency:</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="reclassifyCurrentPatient('EMERGENCY')" class="py-2 rounded-lg font-semibold bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300 hover:bg-red-200 border border-red-300 dark:border-red-800 transition">Emergency</button>
+                        <button onclick="reclassifyCurrentPatient('URGENT')" class="py-2 rounded-lg font-semibold bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 hover:bg-amber-200 border border-amber-300 dark:border-amber-800 transition">Urgent</button>
+                        <button onclick="reclassifyCurrentPatient('ROUTINE')" class="py-2 rounded-lg font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 hover:bg-emerald-200 border border-emerald-300 dark:border-emerald-800 transition">Routine</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button onclick="closeModal()" class="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl text-xs hover:bg-slate-300 dark:hover:bg-slate-600 transition">
+                    Close Details
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global Application State
+        let patients = [];
+        let activeModalPatientId = null;
+        let urgencyChartInstance = null;
+        let statusChartInstance = null;
+
+        // Sample Demo Patients Dataset
+        const initialDemoPatients = [
+            {
+                id: "PAT-1001",
+                name: "Eleanor Vance",
+                age: 62,
+                gender: "Female",
+                bp: "145/90",
+                hr: "98",
+                spo2: "94",
+                temp: "98.8",
+                symptoms: "Crushing retrosternal chest pain radiating to left jaw, diaphoresis, shortness of breath. History of CAD.",
+                urgency: "EMERGENCY",
+                arrivalTime: "08:15",
+                status: "WAITING"
+            },
+            {
+                id: "PAT-1002",
+                name: "Marcus Miller",
+                age: 34,
+                gender: "Male",
+                bp: "128/82",
+                hr: "110",
+                spo2: "97",
+                temp: "103.2",
+                symptoms: "High fever, severe chills, productive cough with rust-colored sputum.",
+                urgency: "URGENT",
+                arrivalTime: "08:22",
+                status: "WAITING"
+            },
+            {
+                id: "PAT-1003",
+                name: "Sophia Chen",
+                age: 28,
+                gender: "Female",
+                bp: "118/75",
+                hr: "72",
+                spo2: "99",
+                temp: "98.4",
+                symptoms: "Mild allergic skin rash on forearms after contact with garden plant. No respiratory distress.",
+                urgency: "ROUTINE",
+                arrivalTime: "08:30",
+                status: "WAITING"
+            },
+            {
+                id: "PAT-1004",
+                name: "David Ross",
+                age: 50,
+                gender: "Male",
+                bp: "150/95",
+                hr: "80",
+                spo2: "98",
+                temp: "98.6",
+                symptoms: "Hypertension prescription renewal request and routine blood pressure monitoring.",
+                urgency: "ROUTINE",
+                arrivalTime: "08:05",
+                status: "IN_CONSULTATION"
+            },
+            {
+                id: "PAT-1005",
+                name: "Amara Patel",
+                age: 19,
+                gender: "Female",
+                bp: "112/70",
+                hr: "122",
+                spo2: "91",
+                temp: "98.9",
+                symptoms: "Acute severe asthma exacerbation, loud wheezing, SpO2 91% on room air.",
+                urgency: "EMERGENCY",
+                arrivalTime: "08:45",
+                status: "WAITING"
+            },
+            {
+                id: "PAT-1006",
+                name: "Robert Green",
+                age: 44,
+                gender: "Male",
+                bp: "122/80",
+                hr: "76",
+                spo2: "98",
+                temp: "98.6",
+                symptoms: "Sustained deep laceration on right forearm from glass. Bleeding controlled with pressure bandage.",
+                urgency: "URGENT",
+                arrivalTime: "07:50",
+                status: "COMPLETED"
+            },
+            {
+                id: "PAT-1007",
+                name: "Hannah Abbott",
+                age: 71,
+                gender: "Female",
+                bp: "160/98",
+                hr: "88",
+                spo2: "96",
+                temp: "98.2",
+                symptoms: "Sudden onset dizziness, mild slurred speech. Discharged after stroke protocol clearance.",
+                urgency: "EMERGENCY",
+                arrivalTime: "07:10",
+                status: "COMPLETED"
+            }
+        ];
+
+        window.onload = function() {
+            const savedData = localStorage.getItem("carequeue_v2_patients");
+            if (savedData) {
+                try {
+                    patients = JSON.parse(savedData);
+                } catch(e) {
+                    patients = [...initialDemoPatients];
+                }
+            } else {
+                patients = [...initialDemoPatients];
+            }
+
+            generateNewPatientId();
+            setCurrentArrivalTime();
+            initializeCharts();
+            updateUI();
+        };
+
+        function saveToStorage() {
+            localStorage.setItem("carequeue_v2_patients", JSON.stringify(patients));
+        }
+
+        function loadDemoData() {
+            patients = JSON.parse(JSON.stringify(initialDemoPatients));
+            saveToStorage();
+            updateUI();
+            showNotification("Demo patient dataset loaded successfully!", "success");
+        }
+
+        function switchTab(tab) {
+            document.getElementById("tab-register").classList.add("hidden");
+            document.getElementById("tab-queue").classList.add("hidden");
+            document.getElementById("tab-history").classList.add("hidden");
+
+            const defaultBtnClass = "px-3.5 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all duration-150 flex items-center";
+            const activeBtnClass = "px-3.5 py-1.5 rounded-lg transition-all duration-150 bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs flex items-center font-bold";
+
+            document.getElementById("tab-register-btn").className = defaultBtnClass;
+            document.getElementById("tab-queue-btn").className = defaultBtnClass;
+            document.getElementById("tab-history-btn").className = defaultBtnClass;
+
+            if (tab === 'register') {
+                document.getElementById("tab-register").classList.remove("hidden");
+                document.getElementById("tab-register-btn").className = activeBtnClass;
+            } else if (tab === 'queue') {
+                document.getElementById("tab-queue").classList.remove("hidden");
+                document.getElementById("tab-queue-btn").className = activeBtnClass;
+                renderQueue();
+            } else if (tab === 'history') {
+                document.getElementById("tab-history").classList.remove("hidden");
+                document.getElementById("tab-history-btn").className = activeBtnClass;
+                renderHistory();
+            }
+        }
+
+        function generateNewPatientId() {
+            const nextNum = patients.length + 1001;
+            document.getElementById("reg-patient-id").value = `PAT-${nextNum}`;
+        }
+
+        function setCurrentArrivalTime() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById("reg-arrival-time").value = `${hours}:${minutes}`;
+        }
+
+        function autoSuggestTriage() {
+            const symptoms = document.getElementById("reg-symptoms").value.toLowerCase();
+            const spo2 = parseInt(document.getElementById("reg-vital-spo2").value) || 98;
+            const hr = parseInt(document.getElementById("reg-vital-hr").value) || 75;
+            
+            const aiBox = document.getElementById("ai-suggestion-box");
+            const aiTitle = document.getElementById("ai-suggest-title");
+            const aiDesc = document.getElementById("ai-suggest-desc");
+
+            if (!symptoms.trim()) {
+                showNotification("Please enter chief symptoms before requesting AI recommendation.", "error");
+                return;
+            }
+
+            const emergencyKeywords = ["chest pain", "shortness of breath", "stroke", "unconscious", "severe bleeding", "cardiac", "seizure", "anaphylaxis"];
+            const urgentKeywords = ["fever", "fracture", "deep laceration", "abdominal pain", "vomiting", "asthma", "hypertension", "infection"];
+
+            let suggested = "ROUTINE";
+            let reason = "Symptoms indicate non-acute clinical presentation appropriate for standard consultation.";
+
+            if (spo2 < 92 || hr > 120) {
+                suggested = "EMERGENCY";
+                reason = `Vital signs alert detected (SpO2: ${spo2}%, HR: ${hr} BPM). Critical priority assigned.`;
+            } else {
+                for (let kw of emergencyKeywords) {
+                    if (symptoms.includes(kw)) {
+                        suggested = "EMERGENCY";
+                        reason = `Detected severe risk keyword: "${kw}". Immediate medical intervention suggested.`;
+                        break;
+                    }
+                }
+            }
+
+            if (suggested === "ROUTINE") {
+                for (let kw of urgentKeywords) {
+                    if (symptoms.includes(kw)) {
+                        suggested = "URGENT";
+                        reason = `Detected urgent acuity keyword: "${kw}". Recommends evaluation within 30 minutes.`;
+                        break;
+                    }
+                }
+            }
+
+            const radios = document.getElementsByName("reg-urgency");
+            for (let r of radios) {
+                if (r.value === suggested) r.checked = true;
+            }
+
+            aiBox.classList.remove("hidden");
+            aiTitle.textContent = `AI Suggested Level: ${suggested}`;
+            aiDesc.textContent = reason;
+        }
+
+        function handleRegisterPatient(event) {
+            event.preventDefault();
+
+            const id = document.getElementById("reg-patient-id").value;
+            const name = document.getElementById("reg-name").value.trim();
+            const age = parseInt(document.getElementById("reg-age").value);
+            const gender = document.getElementById("reg-gender").value;
+            const bp = document.getElementById("reg-vital-bp").value.trim() || "120/80";
+            const hr = document.getElementById("reg-vital-hr").value.trim() || "75";
+            const spo2 = document.getElementById("reg-vital-spo2").value.trim() || "98";
+            const temp = document.getElementById("reg-vital-temp").value.trim() || "98.6";
+            const symptoms = document.getElementById("reg-symptoms").value.trim();
+            const arrivalTime = document.getElementById("reg-arrival-time").value;
+            
+            const urgencyRadios = document.getElementsByName("reg-urgency");
+            let urgency = null;
+            for (let r of urgencyRadios) {
+                if (r.checked) urgency = r.value;
+            }
+
+            if (!name || isNaN(age) || !symptoms || !arrivalTime || !urgency) {
+                showFormAlert("Please fill in all mandatory fields.", "error");
+                return;
+            }
+
+            const newPatient = {
+                id,
+                name,
+                age,
+                gender,
+                bp,
+                hr,
+                spo2,
+                temp,
+                symptoms,
+                urgency,
+                arrivalTime,
+                status: "WAITING"
+            };
+
+            patients.push(newPatient);
+            saveToStorage();
+            updateUI();
+
+            // Reset Form
+            document.getElementById("patient-form").reset();
+            document.getElementById("ai-suggestion-box").classList.add("hidden");
+            generateNewPatientId();
+            setCurrentArrivalTime();
+
+            showNotification(`Patient ${name} registered & added to priority queue!`, "success");
+            // Automatically switch to Page 2 (Patient Queue)
+            switchTab('queue');
+        }
+
+        function showFormAlert(msg, type) {
+            const el = document.getElementById("reg-alert");
+            el.classList.remove("hidden", "bg-red-100", "text-red-700", "bg-emerald-100", "text-emerald-700");
+            if (type === 'error') {
+                el.classList.add("bg-red-100", "text-red-700");
+                el.innerHTML = `<i class="fa-solid fa-circle-exclamation mr-1"></i> <span>${msg}</span>`;
+            } else {
+                el.classList.add("bg-emerald-100", "text-emerald-700");
+                el.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> <span>${msg}</span>`;
+            }
+        }
+
+        function getPriorityScore(urgency) {
+            switch(urgency) {
+                case 'EMERGENCY': return 1;
+                case 'URGENT': return 2;
+                case 'ROUTINE': return 3;
+                default: return 4;
+            }
+        }
+
+        function getSortedActivePatients() {
+            return patients.filter(p => p.status !== 'COMPLETED').sort((a, b) => {
+                const pA = getPriorityScore(a.urgency);
+                const pB = getPriorityScore(b.urgency);
+                if (pA !== pB) return pA - pB;
+                return a.arrivalTime.localeCompare(b.arrivalTime);
+            });
+        }
+
+        function renderQueue() {
+            const tbody = document.getElementById("queue-table-body");
+            const emptyState = document.getElementById("queue-empty-state");
+            const searchQuery = document.getElementById("queue-search").value.toLowerCase().trim();
+            const urgencyFilter = document.getElementById("queue-filter-urgency").value;
+            const statusFilter = document.getElementById("queue-filter-status").value;
+
+            const activePatients = getSortedActivePatients();
+
+            const filtered = activePatients.filter(p => {
+                const matchesSearch = p.name.toLowerCase().includes(searchQuery) ||
+                                      p.id.toLowerCase().includes(searchQuery) ||
+                                      p.symptoms.toLowerCase().includes(searchQuery);
+                const matchesUrgency = urgencyFilter === "ALL" || p.urgency === urgencyFilter;
+                const matchesStatus = statusFilter === "ALL" || p.status === statusFilter;
+
+                return matchesSearch && matchesUrgency && matchesStatus;
+            });
+
+            tbody.innerHTML = "";
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove("hidden");
+                return;
+            } else {
+                emptyState.classList.add("hidden");
+            }
+
+            filtered.forEach((p, index) => {
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors";
+
+                let urgencyBadgeClass = "";
+                let urgencyDot = "";
+                if (p.urgency === 'EMERGENCY') {
+                    urgencyBadgeClass = "bg-red-100 text-red-700 dark:bg-red-950/80 dark:text-red-300 border-red-300 dark:border-red-800";
+                    urgencyDot = "<span class='w-2 h-2 rounded-full bg-red-500 animate-ping mr-1.5'></span>";
+                } else if (p.urgency === 'URGENT') {
+                    urgencyBadgeClass = "bg-amber-100 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300 border-amber-300 dark:border-amber-800";
+                    urgencyDot = "<span class='w-2 h-2 rounded-full bg-amber-500 mr-1.5'></span>";
+                } else {
+                    urgencyBadgeClass = "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800";
+                    urgencyDot = "<span class='w-2 h-2 rounded-full bg-emerald-500 mr-1.5'></span>";
+                }
+
+                let statusBadge = "";
+                if (p.status === 'WAITING') {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">Waiting</span>`;
+                } else if (p.status === 'IN_CONSULTATION') {
+                    statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center w-max"><i class="fa-solid fa-stethoscope mr-1"></i> Consulting</span>`;
+                }
+
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-bold text-slate-400">#${index + 1}</td>
+                    <td class="py-3 px-4">
+                        <div class="font-bold text-slate-900 dark:text-white">${escapeHtml(p.name)}</div>
+                        <div class="text-[11px] font-mono text-slate-400">${p.id}</div>
+                    </td>
+                    <td class="py-3 px-4 font-medium text-slate-700 dark:text-slate-300">
+                        <div>${p.age} yrs (${p.gender || 'N/A'})</div>
+                        <div class="text-[10px] text-slate-400">SpO2: ${p.spo2 || '98'}% | HR: ${p.hr || '75'}</div>
+                    </td>
+                    <td class="py-3 px-4 max-w-xs">
+                        <p class="truncate text-xs text-slate-600 dark:text-slate-300">${escapeHtml(p.symptoms)}</p>
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold border ${urgencyBadgeClass}">
+                            ${urgencyDot}${p.urgency}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 font-mono text-xs text-slate-600 dark:text-slate-400">${p.arrivalTime}</td>
+                    <td class="py-3 px-4">${statusBadge}</td>
+                    <td class="py-3 px-4 text-right space-x-1">
+                        ${p.status === 'WAITING' ? `
+                            <button onclick="updatePatientStatus('${p.id}', 'IN_CONSULTATION')" title="Call In Patient" class="p-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs transition font-medium">
+                                <i class="fa-solid fa-user-doctor"></i> Call In
+                            </button>
+                        ` : ''}
+                        ${p.status === 'IN_CONSULTATION' ? `
+                            <button onclick="updatePatientStatus('${p.id}', 'COMPLETED')" title="Complete Consultation" class="p-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs transition font-medium">
+                                <i class="fa-solid fa-check"></i> Complete
+                            </button>
+                        ` : ''}
+                        <button onclick="openPatientModal('${p.id}')" title="Details & Reclassify" class="p-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs transition">
+                            <i class="fa-solid fa-ellipsis-vertical px-1"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderHistory() {
+            const tbody = document.getElementById("history-table-body");
+            const emptyState = document.getElementById("history-empty-state");
+            const searchQuery = document.getElementById("history-search").value.toLowerCase().trim();
+            const urgencyFilter = document.getElementById("history-filter-urgency").value;
+
+            const completedPatients = patients.filter(p => p.status === 'COMPLETED');
+
+            const filtered = completedPatients.filter(p => {
+                const matchesSearch = p.name.toLowerCase().includes(searchQuery) ||
+                                      p.id.toLowerCase().includes(searchQuery) ||
+                                      p.symptoms.toLowerCase().includes(searchQuery);
+                const matchesUrgency = urgencyFilter === "ALL" || p.urgency === urgencyFilter;
+                return matchesSearch && matchesUrgency;
+            });
+
+            tbody.innerHTML = "";
+
+            if (filtered.length === 0) {
+                emptyState.classList.remove("hidden");
+                return;
+            } else {
+                emptyState.classList.add("hidden");
+            }
+
+            filtered.forEach(p => {
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors";
+
+                let urgencyClass = p.urgency === 'EMERGENCY' ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800' :
+                                   p.urgency === 'URGENT' ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/40 border-amber-200 dark:border-amber-800' :
+                                   'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800';
+
+                tr.innerHTML = `
+                    <td class="py-3 px-4">
+                        <div class="font-bold text-slate-900 dark:text-white">${escapeHtml(p.name)}</div>
+                        <div class="text-[11px] font-mono text-slate-400">${p.id}</div>
+                    </td>
+                    <td class="py-3 px-4 text-slate-700 dark:text-slate-300">${p.age} yrs (${p.gender || 'N/A'})</td>
+                    <td class="py-3 px-4 max-w-xs">
+                        <p class="truncate text-xs text-slate-600 dark:text-slate-300">${escapeHtml(p.symptoms)}</p>
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold border ${urgencyClass}">
+                            ${p.urgency}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 font-mono text-xs text-slate-500">${p.arrivalTime}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center w-max">
+                            <i class="fa-solid fa-circle-check text-emerald-500 mr-1.5"></i> Discharged
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-right">
+                        <button onclick="openPatientModal('${p.id}')" class="p-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs transition">
+                            <i class="fa-solid fa-eye mr-1"></i> View
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updatePatientStatus(id, newStatus) {
+            const pt = patients.find(p => p.id === id);
+            if (pt) {
+                pt.status = newStatus;
+                saveToStorage();
+                updateUI();
+                if (newStatus === 'COMPLETED') {
+                    showNotification(`Consultation complete for ${pt.name}. Record archived to Page 3 History!`, "success");
+                } else {
+                    showNotification(`Status updated for ${pt.name} to ${newStatus.replace('_', ' ')}`, "info");
+                }
+            }
+        }
+
+        function reclassifyCurrentPatient(newUrgency) {
+            if (!activeModalPatientId) return;
+            const pt = patients.find(p => p.id === activeModalPatientId);
+            if (pt) {
+                pt.urgency = newUrgency;
+                saveToStorage();
+                updateUI();
+                closeModal();
+                showNotification(`Triage urgency reclassified to ${newUrgency} for ${pt.name}`, "success");
+            }
+        }
+
+        function openPatientModal(id) {
+            const pt = patients.find(p => p.id === id);
+            if (!pt) return;
+
+            activeModalPatientId = id;
+            document.getElementById("modal-patient-name").textContent = pt.name;
+            document.getElementById("modal-patient-id").textContent = `ID: ${pt.id}`;
+            document.getElementById("modal-patient-age").textContent = `${pt.age} Yrs (${pt.gender || 'Unspecified'})`;
+            document.getElementById("modal-patient-arrival").textContent = pt.arrivalTime;
+            document.getElementById("modal-patient-vitals").textContent = `${pt.bp || '120/80'} | SpO2: ${pt.spo2 || '98'}% | HR: ${pt.hr || '75'}`;
+            document.getElementById("modal-patient-status").textContent = pt.status.replace('_', ' ');
+            document.getElementById("modal-patient-symptoms").textContent = pt.symptoms;
+
+            const badge = document.getElementById("modal-urgency-badge");
+            badge.className = "w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg font-bold shadow-xs " +
+                (pt.urgency === 'EMERGENCY' ? 'bg-red-500' : pt.urgency === 'URGENT' ? 'bg-amber-500' : 'bg-emerald-500');
+
+            // Hide reclassify controls if patient is already completed/discharged
+            const reclassifySec = document.getElementById("modal-reclassify-section");
+            if (pt.status === 'COMPLETED') {
+                reclassifySec.classList.add("hidden");
+            } else {
+                reclassifySec.classList.remove("hidden");
+            }
+
+            document.getElementById("patient-modal").classList.remove("hidden");
+        }
+
+        function closeModal() {
+            document.getElementById("patient-modal").classList.add("hidden");
+            activeModalPatientId = null;
+        }
+
+        function updateUI() {
+            const activePool = patients.filter(p => p.status !== 'COMPLETED');
+            const totalActive = activePool.length;
+            const waiting = patients.filter(p => p.status === 'WAITING').length;
+            const consultation = patients.filter(p => p.status === 'IN_CONSULTATION').length;
+            const completedCount = patients.filter(p => p.status === 'COMPLETED').length;
+            const emergencyHistoryCount = patients.filter(p => p.status === 'COMPLETED' && p.urgency === 'EMERGENCY').length;
+
+            document.getElementById("stat-total").textContent = totalActive;
+            document.getElementById("stat-waiting").textContent = waiting;
+            document.getElementById("stat-consultation").textContent = consultation;
+
+            document.getElementById("nav-queue-badge").textContent = waiting;
+
+            document.getElementById("stat-history-count").textContent = completedCount;
+            document.getElementById("stat-history-emergency").textContent = emergencyHistoryCount;
+
+            const avgWait = waiting > 0 ? Math.round((waiting * 10) / Math.max(1, consultation + 1)) : 0;
+            document.getElementById("stat-avg-wait").textContent = waiting > 0 ? avgWait : "0";
+
+            renderQueue();
+            renderHistory();
+            updateCharts();
+        }
+
+        function initializeCharts() {
+            const ctxUrgency = document.getElementById('urgencyChart').getContext('2d');
+            urgencyChartInstance = new Chart(ctxUrgency, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Emergency', 'Urgent', 'Routine'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    cutout: '70%'
+                }
+            });
+
+            const ctxStatus = document.getElementById('statusChart').getContext('2d');
+            statusChartInstance = new Chart(ctxStatus, {
+                type: 'bar',
+                data: {
+                    labels: ['Waiting', 'In Consultation'],
+                    datasets: [{
+                        label: 'Active Patients',
+                        data: [0, 0],
+                        backgroundColor: ['#f59e0b', '#3b82f6'],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function updateCharts() {
+            if (!urgencyChartInstance || !statusChartInstance) return;
+
+            const activePool = patients.filter(p => p.status !== 'COMPLETED');
+            const emergencyCount = activePool.filter(p => p.urgency === 'EMERGENCY').length;
+            const urgentCount = activePool.filter(p => p.urgency === 'URGENT').length;
+            const routineCount = activePool.filter(p => p.urgency === 'ROUTINE').length;
+
+            urgencyChartInstance.data.datasets[0].data = [emergencyCount, urgentCount, routineCount];
+            urgencyChartInstance.update();
+
+            const waitingCount = activePool.filter(p => p.status === 'WAITING').length;
+            const consultCount = activePool.filter(p => p.status === 'IN_CONSULTATION').length;
+
+            statusChartInstance.data.datasets[0].data = [waitingCount, consultCount];
+            statusChartInstance.update();
+        }
+
+        function exportHistoryData() {
+            const completedPatients = patients.filter(p => p.status === 'COMPLETED');
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(completedPatients, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `Patient_History_Export_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showNotification("Discharged patient history exported successfully!", "info");
+        }
+
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            const icon = document.getElementById('theme-toggle-icon');
+            if (document.documentElement.classList.contains('dark')) {
+                icon.className = "fa-solid fa-sun";
+            } else {
+                icon.className = "fa-solid fa-moon";
+            }
+        }
+
+        function escapeHtml(str) {
+            return str ? str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;") : "";
+        }
+
+        function showNotification(msg, type) {
+            const notif = document.createElement("div");
+            notif.className = `fixed bottom-4 right-4 z-50 p-3 rounded-xl text-xs font-semibold text-white shadow-xl transition-all duration-300 transform translate-y-0 flex items-center ${type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-red-600' : 'bg-slate-800'}`;
+            notif.innerHTML = `<i class="fa-solid fa-circle-info mr-2 text-sm"></i> <span>${msg}</span>`;
+            document.body.appendChild(notif);
+            setTimeout(() => {
+                notif.style.opacity = '0';
+                setTimeout(() => notif.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
